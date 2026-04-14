@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Gestión Curso Ingreso 2026
 
 Sistema de gestión web para el curso de ingreso escolar con 520 alumnos. Construido con React.js, Vite, Tailwind CSS y Firebase.
@@ -254,3 +255,4 @@ Proyecto interno - Uso exclusivo para el curso de ingreso 2026.
 
 **Última actualización:** abril 2026  
 **Versión:** 1.0.0
+
