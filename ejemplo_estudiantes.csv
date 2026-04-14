@@ -1,0 +1,31 @@
+id_estudiante,apellido,nombre,dni,fecha_nac,comision,gestion,partido
+EST-001,Pérez,Juan,12345678,2008-05-15,A,2025,La Matanza
+EST-002,García,María,87654321,2008-08-22,B,2025,Lomas de Zamora
+EST-003,López,Carlos,11223344,2008-03-10,A,2025,Almirante Brown
+EST-004,Rodríguez,Ana,55667788,2008-12-07,C,2025,Lanús
+EST-005,Martínez,Diego,99001122,2008-01-20,B,2025,Avellaneda
+EST-006,Fernández,Laura,33445566,2008-06-14,A,2025,Almirante Brown
+EST-007,González,Miguel,77889900,2008-09-03,C,2025,Lomas de Zamora
+EST-008,Herrera,Sandra,11223344,2008-04-25,B,2025,La Matanza
+EST-009,Diaz,Roberto,55667788,2008-11-30,A,2025,Lanús
+EST-010,Torres,Valentina,22334455,2008-02-18,C,2025,Avellaneda
+EST-011,Ruiz,Francisco,88990011,2008-07-09,B,2025,La Matanza
+EST-012,Gómez,Mariana,44556677,2008-10-14,A,2025,Lomas de Zamora
+EST-013,Castro,Lucas,66778899,2008-05-29,C,2025,Almirante Brown
+EST-014,Moreno,Gabriela,00112233,2008-08-11,B,2025,Lanús
+EST-015,Vega,Andrés,99887766,2008-03-22,A,2025,Avellaneda
+EST-016,Santos,Constanza,55443322,2008-09-16,C,2025,La Matanza
+EST-017,Flores,Javier,11000999,2008-04-08,B,2025,Lomas de Zamora
+EST-018,Rojas,Melissa,77665544,2008-06-27,A,2025,Almirante Brown
+EST-019,Medina,Esteban,33221100,2008-12-01,C,2025,Lanús
+EST-020,Vargas,Paula,88776655,2008-01-13,B,2025,Avellaneda
+EST-021,Navarro,Mateo,44332211,2008-07-24,A,2025,La Matanza
+EST-022,Ortiz,Sofia,99887744,2008-02-05,C,2025,Lomas de Zamora
+EST-023,Iglesias,Nicolás,22110088,2008-10-19,B,2025,Almirante Brown
+EST-024,Peña,Emilia,55443311,2008-05-02,A,2025,Lanús
+EST-025,Acosta,Tomás,88665533,2008-08-30,C,2025,Avellaneda
+EST-026,Bermúdez,Catalina,11998877,2008-03-14,B,2025,La Matanza
+EST-027,Cabrera,Matías,77554433,2008-09-07,A,2025,Lomas de Zamora
+EST-028,Delgado,Valeria,33221199,2008-04-16,C,2025,Almirante Brown
+EST-029,Escribano,Rafael,66443322,2008-11-25,B,2025,Lanús
+EST-030,Fuentes,Isabel,00998877,2008-06-09,A,2025,Avellaneda
