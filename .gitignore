@@ -40,3 +40,15 @@ firebase-debug.log
 *.swp
 *.swo
 *~
+
+# Documentación interna desactualizada
+ARBOL_CARPETAS.md
+CHANGELOG.md
+CHECKLIST.md
+ESTRUCTURA_PROYECTO.md
+INDICE.md
+RESUMEN_FINAL.md
+SETUP_GUIDE.md
+START_HERE.md
+TECHNICAL_SPECS.md
+VSCODE_GUIDE.md
