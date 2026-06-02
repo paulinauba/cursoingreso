@@ -1,24 +1,33 @@
-import React, { useState, useEffect } from 'react'
-import { onAuthStateChanged } from 'firebase/auth'
-import { collection, getDocs } from 'firebase/firestore'
+import { useState, useEffect } from 'react'
 import { auth, db } from './config/firebase'
+import { onAuthStateChanged, signOut } from 'firebase/auth'
+import { collection, getDocs } from 'firebase/firestore'
+import AppSelector from './components/AppSelector'
 import Login from './components/auth/Login'
 import Dashboard from './components/dashboard/Dashboard'
 import Loading from './components/ui/Loading'
 import { checkAdminWhitelist } from './utils/authUtils'
+import { useTheme, THEMES } from './hooks/useTheme'
 
 function App() {
   const [user, setUser] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
   const [activeCycle, setActiveCycle] = useState(null)
+  const [selectedApp, setSelectedApp] = useState(null)
+
+  // Apply theme based on current view
+  const currentTheme = !selectedApp && !user ? THEMES.SELECTOR : THEMES.CURSO_INGRESO
+  useTheme(currentTheme)
 
   useEffect(() => {
+    let isMounted = true
+
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       try {
         if (currentUser) {
           const adminData = await checkAdminWhitelist(currentUser.email)
-          if (adminData) {
+          if (adminData && isMounted) {
             setUser({
               uid: currentUser.uid,
               email: currentUser.email,
@@ -27,39 +36,43 @@ function App() {
               role: adminData.role || 'admin',
               adminId: adminData.id
             })
-            // Cargar el ciclo activo desde Firestore
             await loadActiveCycle()
-          } else {
-            await auth.signOut()
+          } else if (!adminData && isMounted) {
+            await signOut(auth)
             setUser(null)
           }
         } else {
-          setUser(null)
+          if (isMounted) setUser(null)
         }
       } catch (err) {
-        console.error('Error en verificación de usuario:', err)
-        setError('Error al verificar autenticación')
+        console.error('Auth state error:', err)
+        if (isMounted) setError('Error al verificar autenticación')
       } finally {
-        setIsLoading(false)
+        if (isMounted) setIsLoading(false)
       }
     })
-    return unsubscribe
+
+    return () => {
+      isMounted = false
+      unsubscribe()
+    }
   }, [])
 
   const loadActiveCycle = async () => {
     try {
       const snapshot = await getDocs(collection(db, 'cycles'))
-      const active = snapshot.docs.find(d => d.data().status === 'active')
+      const cycles = snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
+      cycles.sort((a, b) => b.id.localeCompare(a.id))
+      const active = cycles.find(c => c.status === 'active')
       if (active) {
         setActiveCycle(active.id)
+      } else if (cycles.length > 0) {
+        setActiveCycle(cycles[0].id)
       } else {
-        // Si no hay ciclo activo, usar el más reciente como referencia
-        const sorted = snapshot.docs.sort((a, b) => b.id.localeCompare(a.id))
-        if (sorted.length > 0) setActiveCycle(sorted[0].id)
+        setActiveCycle(String(new Date().getFullYear()))
       }
     } catch (err) {
       console.error('Error al cargar ciclo activo:', err)
-      // Fallback al año actual
       setActiveCycle(String(new Date().getFullYear()))
     }
   }
@@ -77,6 +90,11 @@ function App() {
     )
   }
 
+  // Show app selector if user hasn't selected an app and isn't logged in
+  if (!selectedApp && !user) {
+    return <AppSelector onSelectApp={setSelectedApp} />
+  }
+
   return (
     <>
       {user ? (
@@ -84,7 +102,10 @@ function App() {
           user={user}
           activeCycle={activeCycle}
           onCycleChange={setActiveCycle}
-          onLogout={() => setUser(null)}
+          onLogout={() => {
+            setUser(null)
+            setSelectedApp(null)
+          }}
         />
       ) : (
         <Login onLoginSuccess={setUser} />

@@ -89,16 +89,11 @@ export const mapStudentData = (csvData, cycle) => {
     apellido: row['apellido'] || '',
     nombre: row['nombre'] || '',
     dni: row['dni'] || '',
-    fechaNacimiento: row['fecha_nac'] || row['fecha_nacimiento'] || '',
     comision: row['comision'] || row['comisión'] || '',
-    gestion: row['gestion'] || row['gestión'] || '',
-    partido: row['partido'] || '',
-    cycle,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    exams: buildExams(cycle),
-    grades: {},
-    status: 'active'
+    cycle_year: cycle,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    grades: {}
   }))
 }
 
@@ -107,6 +102,28 @@ export const validateStudentData = (student) => {
   if (!student.id || student.id.trim() === '') errors.push('ID de estudiante requerido')
   if (!student.apellido || student.apellido.trim() === '') errors.push('Apellido requerido')
   if (!student.nombre || student.nombre.trim() === '') errors.push('Nombre requerido')
-  if (student.dni && student.dni.trim() && isNaN(student.dni)) errors.push('DNI debe ser un número válido')
+
+  // DNI validation: must be numeric and 7-8 digits
+  if (student.dni && student.dni.trim()) {
+    if (isNaN(student.dni)) {
+      errors.push('DNI debe ser un número válido')
+    } else if (student.dni.trim().length < 7 || student.dni.trim().length > 8) {
+      errors.push('DNI debe tener 7 a 8 dígitos')
+    }
+  }
+
+  // fecha_nac validation: should be in YYYY-MM-DD format
+  if (student.fecha_nac && student.fecha_nac.trim()) {
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/
+    if (!dateRegex.test(student.fecha_nac.trim())) {
+      errors.push('Fecha de nacimiento debe estar en formato YYYY-MM-DD')
+    } else {
+      const date = new Date(student.fecha_nac)
+      if (isNaN(date.getTime())) {
+        errors.push('Fecha de nacimiento no es una fecha válida')
+      }
+    }
+  }
+
   return errors
 }

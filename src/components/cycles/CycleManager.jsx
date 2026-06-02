@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import { collection, doc, getDoc, getDocs, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../config/firebase'
+import { collection, doc, getDocs, setDoc, updateDoc, getCountFromServer } from 'firebase/firestore'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card'
 import Button from '../ui/Button'
 import { Archive, Plus, CheckCircle, Clock, AlertTriangle } from 'lucide-react'
@@ -25,15 +25,14 @@ const CycleManager = ({ activeCycle, onCycleChange }) => {
       const snapshot = await getDocs(collection(db, 'cycles'))
       const cyclesData = await Promise.all(
         snapshot.docs.map(async (d) => {
-          const meta = d.data()
-          // Contar estudiantes
-          const studentsSnap = await getDocs(collection(db, 'cycles', d.id, 'students'))
+          const data = d.data()
+          const studentsSnap = await getCountFromServer(collection(db, 'cycles', d.id, 'students'))
           return {
             id: d.id,
-            status: meta.status || 'archived',
-            createdAt: meta.createdAt,
-            archivedAt: meta.archivedAt,
-            studentCount: studentsSnap.size
+            status: data.status || 'archived',
+            createdAt: data.createdAt,
+            archivedAt: data.archivedAt,
+            studentCount: studentsSnap.data().count
           }
         })
       )
@@ -66,9 +65,10 @@ const CycleManager = ({ activeCycle, onCycleChange }) => {
     try {
       await setDoc(doc(db, 'cycles', year), {
         status: 'active',
-        createdAt: serverTimestamp(),
+        createdAt: new Date().toISOString(),
         archivedAt: null
       })
+
       setSuccessMsg(`Ciclo ${year} creado y activado correctamente.`)
       setNewCycleYear('')
       await loadCycles()
@@ -89,8 +89,9 @@ const CycleManager = ({ activeCycle, onCycleChange }) => {
     try {
       await updateDoc(doc(db, 'cycles', current.id), {
         status: 'archived',
-        archivedAt: serverTimestamp()
+        archivedAt: new Date().toISOString()
       })
+
       setSuccessMsg(`Ciclo ${current.id} archivado. Ahora podés crear el nuevo ciclo.`)
       setShowConfirm(null)
       await loadCycles()
@@ -203,6 +204,8 @@ const CycleManager = ({ activeCycle, onCycleChange }) => {
                   value={newCycleYear}
                   onChange={e => { setNewCycleYear(e.target.value); setError('') }}
                   onKeyDown={e => e.key === 'Enter' && handleCreateCycle()}
+                  min="2020"
+                  max="2100"
                 />
               </div>
               <Button onClick={handleCreateCycle} disabled={isCreating} className="gap-2">

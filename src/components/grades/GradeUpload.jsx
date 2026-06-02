@@ -1,6 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { doc, getDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '../../config/firebase';
+import React, { useState, useRef, useEffect } from 'react'
+import { db } from '../../config/firebase'
+import { doc, getDoc, updateDoc } from 'firebase/firestore'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import { Input } from '../ui/Input';
 import Button from '../ui/Button';
@@ -57,73 +57,77 @@ const GradeUpload = ({ cycle }) => {
       : rawStudentId;
     
     try {
-      // 3. Buscar al estudiante por su ID de campo (no docId)
-      const studentsRef = collection(db, 'cycles', cycle, 'students');
-      const q = query(studentsRef, where("id", "==", studentId));
-      const querySnapshot = await getDocs(q);
+      const ref = doc(db, 'cycles', cycle, 'students', studentId)
+      const snap = await getDoc(ref)
 
-      if (querySnapshot.empty) {
-        setStatus({ type: 'error', message: 'Estudiante no encontrado en la base de datos.' });
-        setBarcodeInput('');
+      if (!snap.exists()) {
+        setStatus({ type: 'error', message: 'Estudiante no encontrado en la base de datos.' })
+        setBarcodeInput('')
       } else {
-        const studentDoc = querySnapshot.docs[0];
-        setCurrentStudent({ docId: studentDoc.id, ...studentDoc.data(), barcodeScanned: scannedValue });
-        setStatus({ type: '', message: '' });
+        setCurrentStudent({ docId: snap.id, ...snap.data(), barcodeScanned: scannedValue })
+        setStatus({ type: '', message: '' })
       }
     } catch (error) {
-      console.error("Error al buscar estudiante:", error);
-      setStatus({ type: 'error', message: 'Error de conexión con la base de datos.' });
+      console.error("Error al buscar estudiante:", error)
+      setStatus({ type: 'error', message: 'Error de conexión con la base de datos.' })
     }
     setBarcodeInput('');
   };
 
- const handleSaveGrade = async () => {
-    // Validamos que haya una nota o que no esté vacío
-    if (!grade || (isNaN(grade) && grade.toLowerCase() !== 'aus')) {
-      alert("Por favor ingrese una nota válida (0-100) o escriba 'Aus'");
-      return;
+  const handleSaveGrade = async () => {
+    const trimmedGrade = String(grade).trim()
+    if (!trimmedGrade || isNaN(trimmedGrade)) {
+      alert("Por favor ingrese una nota válida (0-100)")
+      return
     }
 
     try {
-      const studentRef = doc(db, 'cycles', cycle, 'students', currentStudent.docId);
-      
-      // Si el usuario escribió "aus", guardamos el texto, sino el número
-      const valueToSave = grade.toLowerCase() === 'aus' ? 'Aus' : Number(grade);
+      const valueToSave = Number(trimmedGrade)
 
-      if (typeof valueToSave === 'number' && (valueToSave < 0 || valueToSave > 100)) {
-        alert("La nota debe estar entre 0 y 100");
-        return;
+      if (!Number.isInteger(valueToSave) || valueToSave < 0 || valueToSave > 100) {
+        alert("La nota debe ser un número entero entre 0 y 100")
+        return
       }
 
-      await updateDoc(studentRef, {
-        [`grades.${selectedExam}`]: valueToSave
-      });
+      const updatedGrades = {
+        ...currentStudent.grades,
+        [selectedExam]: valueToSave
+      }
 
-      setStatus({ 
-        type: 'success', 
-        message: `Guardado: ${currentStudent.barcodeScanned || currentStudent.apellido} - ${valueToSave === 'Aus' ? 'Ausente' : 'Nota: ' + valueToSave + ' pts'}` 
-      });
-      setCurrentStudent(null);
-      setGrade('');
+      const ref = doc(db, 'cycles', cycle, 'students', currentStudent.docId)
+      await updateDoc(ref, { grades: updatedGrades, updatedAt: new Date().toISOString() })
+
+      setStatus({
+        type: 'success',
+        message: `Guardado: ${currentStudent.barcodeScanned || currentStudent.apellido} - Nota: ${valueToSave} pts`
+      })
+      setCurrentStudent(null)
+      setGrade('')
     } catch (error) {
-      console.error("Error al guardar nota:", error);
-      setStatus({ type: 'error', message: 'No se pudo guardar la nota.' });
+      console.error("Error al guardar nota:", error)
+      setStatus({ type: 'error', message: 'No se pudo guardar la nota.' })
     }
-  };
+  }
 
-  // Función directa para el botón de "Marcar Ausente"
   const handleSetAbsent = async () => {
     try {
-      const studentRef = doc(db, 'cycles', cycle, 'students', currentStudent.docId);
-      await updateDoc(studentRef, {
-        [`grades.${selectedExam}`]: 'Aus'
-      });
-      setStatus({ type: 'success', message: `Ausente registrado para ${currentStudent.apellido}` });
-      setCurrentStudent(null);
-      setGrade('');
+      const updatedGrades = {
+        ...currentStudent.grades,
+        [selectedExam]: 'Aus'
+      }
+
+      const ref = doc(db, 'cycles', cycle, 'students', currentStudent.docId)
+      await updateDoc(ref, { grades: updatedGrades, updatedAt: new Date().toISOString() })
+
+      setStatus({
+        type: 'success',
+        message: `Ausente registrado para ${currentStudent.apellido}`
+      })
+      setCurrentStudent(null)
+      setGrade('')
     } catch (error) {
-      console.error("Error:", error);
-      setStatus({ type: 'error', message: 'Error al registrar ausente' });
+      console.error("Error:", error)
+      setStatus({ type: 'error', message: 'Error al registrar ausente' })
     }
   };
 
@@ -176,9 +180,12 @@ const GradeUpload = ({ cycle }) => {
               
               <div className="mt-4 flex gap-4 items-end">
   <div className="flex-1">
-    <label className="block text-sm font-medium mb-1">Nota (0-100) o 'Aus'</label>
-    <Input
-      type="text"
+    <label className="block text-sm font-medium mb-1">Nota (0-100)</label>
+    <input
+      type="number"
+      min="0"
+      max="100"
+      step="1"
       value={grade}
       onChange={(e) => setGrade(e.target.value)}
       onKeyDown={(e) => {
@@ -186,8 +193,9 @@ const GradeUpload = ({ cycle }) => {
           handleSaveGrade();
         }
       }}
-      placeholder="Ej: 85 o Aus"
+      placeholder="Ej: 85"
       autoFocus
+      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
     />
   </div>
   

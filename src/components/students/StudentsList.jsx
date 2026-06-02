@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import { collection, doc, onSnapshot, updateDoc } from 'firebase/firestore'
 import { db } from '../../config/firebase'
+import { collection, doc, query, orderBy, onSnapshot, updateDoc } from 'firebase/firestore'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card'
 import { Input } from '../ui/Input'
 import Button from '../ui/Button'
@@ -29,16 +29,15 @@ const StudentsList = ({ cycle }) => {
 
   const handleUpdateStudent = async (updatedData) => {
     try {
-      // Usamos editingStudent.docId para saber exactamente qué documento tocar en Firebase
-      const studentRef = doc(db, 'cycles', cycle, 'students', editingStudent.docId);
-      await updateDoc(studentRef, updatedData);
-      setIsEditModalOpen(false);
-      setEditingStudent(null);
+      const ref = doc(db, 'cycles', cycle, 'students', editingStudent.docId)
+      await updateDoc(ref, { ...updatedData, updatedAt: new Date().toISOString() })
+      setIsEditModalOpen(false)
+      setEditingStudent(null)
     } catch (error) {
-      console.error("Error al actualizar:", error);
-      alert("No se pudieron guardar los cambios.");
+      console.error("Error al actualizar:", error)
+      alert("No se pudieron guardar los cambios.")
     }
-  };
+  }
 
   const examOptions = [
     { value: 'M1-2026', label: 'Matemática 1' },
@@ -52,17 +51,16 @@ const StudentsList = ({ cycle }) => {
   ]
 
   useEffect(() => {
-    const studentsCollection = collection(doc(db, 'cycles', cycle), 'students')
-    const unsubscribe = onSnapshot(studentsCollection, (snapshot) => {
-      const studentsData = snapshot.docs.map(doc => ({
-        docId: doc.id,
-        ...doc.data()
-      }))
-      console.log('students snapshot', cycle, snapshot.size, studentsData)
-      setStudents(studentsData)
+    const q = query(
+      collection(db, 'cycles', cycle, 'students'),
+      orderBy('apellido')
+    )
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setStudents(snapshot.docs.map(d => ({ docId: d.id, ...d.data() })))
+    }, (error) => {
+      console.error('Error loading students:', error)
     })
-
-    return () => unsubscribe()
+    return unsubscribe
   }, [cycle])
 
   const normalizedSearch = searchTerm.toLowerCase().trim()
@@ -118,11 +116,10 @@ const commissionOptions = Array.from(
     const studentCode = getStudentCode(student)
 
     pdf.setFont('helvetica', 'normal')
-    pdf.setFontSize(12)
+    pdf.setFontSize(14)
     pdf.text('CARÁTULA DE EXAMEN', 40, 30)
-    pdf.setFontSize(9)
+    pdf.setFontSize(11)
     pdf.text('Código de barra', 40, 48)
-    pdf.setFontSize(10)
     pdf.text(barcodeValue, 40, 62)
     pdf.addImage(barcodeImage, 'PNG', 360, 20, 190, 60)
 
@@ -130,8 +127,6 @@ const commissionOptions = Array.from(
     pdf.setLineWidth(0.5)
     pdf.line(40, 70, 260, 70)
     pdf.setLineDashPattern([], 0)
-    pdf.setFontSize(9)
-    
 
     const tableTop = 130
     const tableLeft = 40
@@ -139,31 +134,43 @@ const commissionOptions = Array.from(
     const rowHeight = 28
     const headerHeight = 26
     const rows = 10
+    const totalRowHeight = 28
     const col1 = 50
     const col2 = 80
     const col3 = tableWidth - col1 - col2
+    const tableHeight = headerHeight + rows * rowHeight + totalRowHeight
     const signatureLeft = tableLeft + tableWidth + 20
     const signatureWidth = 120
-    const signatureFirstY = tableTop + 10
-    const signatureSecondY = signatureFirstY + 40
+    const signatureFirstY = tableTop + 60
+    const signatureSecondY = tableTop + 210
 
     pdf.setLineWidth(0.7)
-    pdf.rect(tableLeft, tableTop, tableWidth, headerHeight + rows * rowHeight)
-    pdf.line(tableLeft + col1, tableTop, tableLeft + col1, tableTop + headerHeight + rows * rowHeight)
-    pdf.line(tableLeft + col1 + col2, tableTop, tableLeft + col1 + col2, tableTop + headerHeight + rows * rowHeight)
+    pdf.rect(tableLeft, tableTop, tableWidth, tableHeight)
+    pdf.line(tableLeft + col1, tableTop, tableLeft + col1, tableTop + tableHeight)
+    pdf.line(tableLeft + col1 + col2, tableTop, tableLeft + col1 + col2, tableTop + tableHeight)
 
     pdf.setFont('helvetica', 'bold')
+    pdf.setFontSize(11)
     pdf.text('Item', tableLeft + col1 / 2, tableTop + 17, { align: 'center' })
     pdf.text('Nota', tableLeft + col1 + col2 / 2, tableTop + 17, { align: 'center' })
     pdf.text('Firma del docente', tableLeft + col1 + col2 + col3 / 2, tableTop + 17, { align: 'center' })
 
+    pdf.line(tableLeft, tableTop + headerHeight, tableLeft + tableWidth, tableTop + headerHeight)
+
     pdf.setFont('helvetica', 'normal')
+    pdf.setFontSize(11)
     for (let i = 1; i <= rows; i += 1) {
       const y = tableTop + headerHeight + i * rowHeight
       pdf.line(tableLeft, y, tableLeft + tableWidth, y)
       pdf.text(`${i}`, tableLeft + col1 / 2, tableTop + headerHeight + i * rowHeight - rowHeight / 2 + 8, { align: 'center' })
     }
 
+    pdf.setFont('helvetica', 'bold')
+    pdf.setFontSize(11)
+    pdf.text('Total', tableLeft + col1 / 2, tableTop + headerHeight + rows * rowHeight + totalRowHeight / 2 + 4, { align: 'center' })
+
+    pdf.setFont('helvetica', 'normal')
+    pdf.setFontSize(10)
     pdf.setLineDashPattern([3, 2], 0)
     pdf.line(signatureLeft, signatureFirstY, signatureLeft + signatureWidth, signatureFirstY)
     pdf.line(signatureLeft, signatureSecondY, signatureLeft + signatureWidth, signatureSecondY)
@@ -171,28 +178,11 @@ const commissionOptions = Array.from(
     pdf.text('Firma supervisor', signatureLeft, signatureFirstY + 14)
     pdf.text('Firma corrector', signatureLeft, signatureSecondY + 14)
 
-    pdf.setLineWidth(0.7)
-    pdf.rect(tableLeft, tableTop, tableWidth, headerHeight + rows * rowHeight)
-    pdf.line(tableLeft + col1, tableTop, tableLeft + col1, tableTop + headerHeight + rows * rowHeight)
-    pdf.line(tableLeft + col1 + col2, tableTop, tableLeft + col1 + col2, tableTop + headerHeight + rows * rowHeight)
-
-    pdf.setFont('helvetica', 'bold')
-    pdf.text('Item', tableLeft + col1 / 2, tableTop + 17, { align: 'center' })
-    pdf.text('Nota', tableLeft + col1 + col2 / 2, tableTop + 17, { align: 'center' })
-    pdf.text('Firma del docente', tableLeft + col1 + col2 + col3 / 2, tableTop + 17, { align: 'center' })
-
-    pdf.setFont('helvetica', 'normal')
-    for (let i = 1; i <= rows; i += 1) {
-      const y = tableTop + headerHeight + i * rowHeight
-      pdf.line(tableLeft, y, tableLeft + tableWidth, y)
-      pdf.text(`${i}`, tableLeft + col1 / 2, tableTop + headerHeight + i * rowHeight - rowHeight / 2 + 8, { align: 'center' })
-    }
-
     pdf.setLineDashPattern([3, 2], 0)
-    pdf.line(40, tableTop + headerHeight + rows * rowHeight + 30, 555, tableTop + headerHeight + rows * rowHeight + 30)
+    pdf.line(40, tableTop + tableHeight + 30, 555, tableTop + tableHeight + 30)
     pdf.setLineDashPattern([], 0)
 
-    const lowerY = tableTop + headerHeight + rows * rowHeight + 55
+    const lowerY = tableTop + tableHeight + 55
     pdf.setFont('helvetica', 'bold')
     pdf.setFontSize(12)
     pdf.text('Curso de Ingreso Ramón Cereijo, UBA.', 40, lowerY)

@@ -5,46 +5,46 @@ Aplicación web para la gestión integral del curso de ingreso: importación de 
 
 ---
 
-## 🚀 Tecnologías
+## Tecnologías
 
 | Capa | Tecnología |
 |---|---|
 | Frontend | React 18 + Vite 5 |
-| Estilos | Tailwind CSS |
-| Base de datos | Firebase Cloud Firestore |
-| Autenticación | Firebase Authentication (Google OAuth) |
-| Hosting actual | Firebase Hosting (entorno de prueba) |
+| Estilos | Tailwind CSS v3 |
+| Base de datos | Firebase Firestore |
+| Autenticación | Firebase Auth (Google OAuth) |
+| Hosting | EC2 (Apache) vía GitHub Actions |
 | Generación PDF | jsPDF + jspdf-autotable |
 | Exportación Excel | SheetJS (xlsx) |
 | Código de barras | JsBarcode (CODE128) |
 
 ---
 
-## 🏗️ Arquitectura
+## Arquitectura
 
-La aplicación es un **SPA (Single Page Application)** completamente estática. No requiere servidor backend propio — toda la lógica corre en el navegador del cliente y se comunica directamente con Firebase (Google Cloud).
+La aplicación es un **SPA (Single Page Application)** completamente estática. No requiere servidor backend propio — toda la lógica corre en el navegador del cliente y se comunica directamente con Firebase.
 
 ```
 Navegador del usuario
        │
        ├── React SPA (archivos estáticos: HTML + JS + CSS)
-       │         Puede servirse desde cualquier servidor web
-       │         (Apache, Nginx, IIS, Firebase Hosting, etc.)
+       │         Se sirve desde Apache en EC2
        │
-       └── Firebase (Google Cloud) ──► Firestore (base de datos)
-                                   ──► Authentication (login)
+       └── Firebase
+               ├── Firestore  (base de datos NoSQL)
+               └── Auth       (Google OAuth)
 ```
 
 **Requisitos de hosting:**
 - Servidor capaz de servir archivos estáticos (HTML/JS/CSS)
-- HTTPS obligatorio (requerido por Firebase Authentication)
+- HTTPS obligatorio (requerido por Firebase Authentication y Google OAuth)
 - Soporte para SPA: redirigir todas las rutas a `index.html`
 
-**No requiere:** PHP, Node.js, Python, base de datos SQL, ni ningún proceso de servidor.
+**No requiere:** Node.js, Python, PHP, ni ningún proceso de servidor backend.
 
 ---
 
-## 🔐 Autenticación y Roles
+## Autenticación y Roles
 
 El acceso está restringido por una **whitelist** en Firestore (colección `admins`). Solo los emails registrados pueden ingresar.
 
@@ -53,14 +53,14 @@ El acceso está restringido por una **whitelist** en Firestore (colección `admi
 | `admin` | Acceso completo: importar estudiantes, cargar notas, gestionar ciclos |
 | `secretary` | Acceso parcial: cargar notas, consultar listas, imprimir boletines y orden de mérito |
 
-El login utiliza **Google OAuth** — los usuarios ingresan con su cuenta Google institucional. No se manejan contraseñas en la aplicación.
+El login usa **Google OAuth** via Firebase — los usuarios ingresan con su cuenta Google. No se manejan contraseñas en la aplicación.
 
 ---
 
-## 📋 Funcionalidades
+## Funcionalidades
 
 - **Gestión de ciclos:** Sistema multi-año. El admin archiva el ciclo vigente y activa el nuevo al comenzar cada año. Los ciclos archivados quedan en modo solo lectura para consulta.
-- **Importación de estudiantes:** Carga masiva desde archivo CSV.
+- **Importación de estudiantes:** Carga masiva desde archivo CSV con validación de campos requeridos.
 - **Carátulas de examen:** Generación de PDF con código de barras (CODE128) por estudiante o por comisión.
 - **Carga de notas:** Lectura mediante pistola lectora de código de barras. Escala 0–100 puntos.
 - **Boletines:** PDF con dos ejemplares por página (original escuela / copia estudiante). Exportación individual, por comisión o masiva.
@@ -68,52 +68,51 @@ El login utiliza **Google OAuth** — los usuarios ingresan con su cuenta Google
 
 ---
 
-## 🗄️ Estructura de la Base de Datos (Firestore)
+## Estructura de la Base de Datos (Firestore)
 
 ```
-firestore/
-├── admins/                        # Whitelist de usuarios autorizados
-│   └── {docId}/
-│       ├── email: string
-│       ├── role: "admin" | "secretary"
-│       └── name: string
-│
-└── cycles/                        # Ciclos lectivos
-    └── {año}/                     # Ej: "2026"
-        ├── status: "active" | "archived"
-        ├── createdAt: timestamp
-        ├── archivedAt: timestamp
-        └── students/              # Subcolección de estudiantes
-            └── {id}/              # Ej: "2026-001"
-                ├── id: string
-                ├── apellido: string
-                ├── nombre: string
-                ├── dni: string
-                ├── comision: string
-                ├── fechaNacimiento: string
-                ├── gestion: string
-                ├── partido: string
-                ├── exams: map      # Estructura fija de exámenes
-                └── grades: map     # Calificaciones cargadas
+admins/                         # Whitelist de usuarios autorizados
+  {docId}/
+    email:    string
+    role:     "admin" | "secretary"
+
+cycles/                         # Ciclos lectivos
+  {year}/                       # Ej: "2026"
+    status:     "active" | "archived"
+    createdAt:  string (ISO)
+    archivedAt: string (ISO) | null
+
+    students/                   # Sub-colección de estudiantes del ciclo
+      {studentId}/              # Ej: "2026-001"
+        id:        string       # igual al docId
+        apellido:  string
+        nombre:    string
+        dni:       string
+        comision:  string
+        grades:    map          # Ej: { "M1-2026": 85, "L2-2026": "Aus" }
+        createdAt: string (ISO)
+        updatedAt: string (ISO)
 ```
+
+Ver `FIREBASE_SETUP.md` para el setup completo: reglas de seguridad, Google OAuth y configuración de GitHub Secrets.
 
 ---
 
-## 🛠️ Instalación local (desarrollo)
+## Instalación local (desarrollo)
 
-**Requisitos previos:** Node.js 18+ y npm.
+**Requisitos:** Node.js 18+ y npm.
 
 ```bash
 # 1. Clonar el repositorio
-git clone https://github.com/[usuario]/[repositorio].git
-cd [repositorio]
+git clone https://github.com/municipalidad-de-escobar/app.colegioubaescobar.gob.ar.git
+cd app.colegioubaescobar.gob.ar
 
 # 2. Instalar dependencias
 npm install
 
 # 3. Configurar variables de entorno
 cp .env.example .env
-# Editar .env con las credenciales del proyecto Firebase
+# Completar .env con las credenciales de Firebase (ver FIREBASE_SETUP.md)
 
 # 4. Iniciar servidor de desarrollo
 npm run dev
@@ -122,36 +121,16 @@ npm run dev
 
 ---
 
-## 🚢 Deploy en producción
+## Build para producción
 
 ```bash
-# Generar build optimizado
 npm run build
-# Los archivos estáticos quedan en la carpeta /dist
+# Los archivos estáticos quedan en /dist
 ```
 
-La carpeta `/dist` puede desplegarse en cualquier servidor web. Para hosting en subdominio propio (ej: `ingreso.colegioubaescobar.gob.ar`):
+El deploy a producción es automático vía GitHub Actions al hacer push a `main`. Ver `DEPLOYMENT_SETUP.md`.
 
-1. Subir el contenido de `/dist` al servidor
-2. Configurar el servidor para redirigir todas las rutas a `index.html` (necesario para SPA)
-3. Asegurarse de que el dominio tenga HTTPS activo
-4. Agregar el dominio en Firebase Console → Authentication → Dominios autorizados
-
-**Configuración Nginx (ejemplo):**
-```nginx
-server {
-    listen 443 ssl;
-    server_name ingreso.colegioubaescobar.gob.ar;
-    root /var/www/curso-ingreso/dist;
-    index index.html;
-
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-}
-```
-
-**Configuración Apache (ejemplo):**
+**Configuración Apache (SPA routing):**
 ```apache
 <IfModule mod_rewrite.c>
     RewriteEngine On
@@ -165,9 +144,9 @@ server {
 
 ---
 
-## 🔑 Variables de entorno
+## Variables de entorno
 
-Crear un archivo `.env` en la raíz del proyecto con las credenciales de Firebase:
+Crear un archivo `.env` en la raíz con las credenciales del proyecto Firebase:
 
 ```env
 VITE_FIREBASE_API_KEY=
@@ -178,16 +157,18 @@ VITE_FIREBASE_MESSAGING_SENDER_ID=
 VITE_FIREBASE_APP_ID=
 ```
 
-> ⚠️ Estas credenciales son públicas por diseño (Firebase las expone al cliente). La seguridad está implementada a nivel de **Firestore Security Rules** y la whitelist de usuarios autorizados.
+Obtener estos valores desde: **Firebase Console** → Configuración del proyecto → Tus apps → Configuración de la app web.
+
+> Las credenciales de Firebase para web son públicas por diseño (se exponen al cliente). La seguridad se implementa mediante **Firestore Security Rules** y la whitelist en la colección `admins`.
 
 ---
 
-## 📁 Estructura del proyecto
+## Estructura del proyecto
 
 ```
 src/
 ├── components/
-│   ├── auth/          # Login
+│   ├── auth/          # Login (Google OAuth via Firebase)
 │   ├── cycles/        # Gestión de ciclos (CycleManager)
 │   ├── dashboard/     # Layout principal (Dashboard)
 │   ├── grades/        # Notas, boletines, orden de mérito
@@ -197,12 +178,20 @@ src/
 │   │   └── ReportsManager.jsx
 │   ├── import/        # Importación CSV (ImportStudents)
 │   ├── students/      # Lista y edición de estudiantes
-│   └── ui/            # Componentes reutilizables
+│   └── ui/            # Componentes reutilizables (Button, Card, Alert, etc.)
 ├── config/
-│   └── firebase.js    # Inicialización Firebase
-└── utils/
-    ├── authUtils.js   # Verificación de whitelist
-    └── csvUtils.js    # Parseo e importación CSV
+│   └── firebase.js    # Cliente Firebase (Auth + Firestore)
+├── utils/
+│   ├── authUtils.js   # Verificación de whitelist (Firestore)
+│   └── csvUtils.js    # Parseo e importación CSV
 public/
 └── logo2.png          # Logo institucional
 ```
+
+---
+
+## Documentación adicional
+
+- **Configuración de Firebase:** `FIREBASE_SETUP.md` — setup inicial, Firestore, Google OAuth, security rules, GitHub Secrets
+- **Deploy a producción:** `DEPLOYMENT_SETUP.md` — EC2, Apache, SSH, GitHub Actions
+- **Guía general del monorepo:** `../CLAUDE.md`

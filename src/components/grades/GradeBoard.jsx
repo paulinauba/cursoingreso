@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { collection, doc, onSnapshot, updateDoc } from 'firebase/firestore'; // Agregamos updateDoc
 import { db } from '../../config/firebase';
+import { collection, doc, query, orderBy, onSnapshot, updateDoc } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/Table';
 import { Input } from '../ui/Input';
@@ -25,15 +25,16 @@ const GradeBoard = ({ cycle }) => {
   ];
 
   useEffect(() => {
-    const studentsCollection = collection(doc(db, 'cycles', cycle), 'students');
-    const unsubscribe = onSnapshot(studentsCollection, (snapshot) => {
-      const studentsData = snapshot.docs.map(doc => ({
-        docId: doc.id,
-        ...doc.data()
-      }));
-      setStudents(studentsData);
-    });
-    return () => unsubscribe();
+    const q = query(
+      collection(db, 'cycles', cycle, 'students'),
+      orderBy('apellido')
+    )
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setStudents(snapshot.docs.map(d => ({ docId: d.id, ...d.data() })))
+    }, (error) => {
+      console.error('Error loading students:', error)
+    })
+    return unsubscribe
   }, [cycle]);
 
   const handleStartEdit = (studentId, examId, currentGrade) => {
@@ -43,17 +44,21 @@ const GradeBoard = ({ cycle }) => {
 
   const handleSaveQuickGrade = async (studentDocId) => {
     try {
-      const studentRef = doc(db, 'cycles', cycle, 'students', studentDocId);
-      const examId = editingCell.examId;
-      
-      await updateDoc(studentRef, {
-        [`grades.${examId}`]: tempGrade === '' ? null : Number(tempGrade)
-      });
-      
-      setEditingCell(null);
+      const examId = editingCell.examId
+      if (tempGrade !== '' && (isNaN(tempGrade) || !Number.isInteger(Number(tempGrade)) || Number(tempGrade) < 0 || Number(tempGrade) > 100)) {
+        alert("La nota debe ser un número entero entre 0 y 100")
+        return
+      }
+      const value = tempGrade === '' ? null : Number(tempGrade)
+      const ref = doc(db, 'cycles', cycle, 'students', studentDocId)
+      await updateDoc(ref, {
+        [`grades.${examId}`]: value,
+        updatedAt: new Date().toISOString()
+      })
+      setEditingCell(null)
     } catch (error) {
-      console.error("Error al actualizar nota:", error);
-      alert("Error al guardar");
+      console.error("Error al actualizar nota:", error)
+      alert("Error al guardar")
     }
   };
 
@@ -103,6 +108,9 @@ const GradeBoard = ({ cycle }) => {
                           <div className="flex items-center gap-1 justify-center">
                             <input
                               type="number"
+                              min="0"
+                              max="100"
+                              step="1"
                               className="w-14 border rounded px-1 text-center h-8"
                               value={tempGrade}
                               onChange={(e) => setTempGrade(e.target.value)}
